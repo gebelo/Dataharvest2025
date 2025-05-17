@@ -3,10 +3,9 @@ title: "Mapping In Code"
 format: 
   html:
     code-fold: false
-    self_contained: false
 editor: visual
 execute: 
-  cache: true
+  cache: false
 embed-resources: true
 ---
 
@@ -48,7 +47,7 @@ To start, let's just make a simple map. You can either download the GIS data and
 #| warning: false
 uscounties<-read_sf("https://raw.githubusercontent.com/loganpowell/census-geojson/refs/heads/master/GeoJSON/500k/2022/county.json")
 
-leaflet()%>%
+themap<-leaflet()%>%
   addTiles()%>%
   addPolygons(data = uscounties , 
               fillColor = "yellow", 
@@ -57,6 +56,8 @@ leaflet()%>%
               smoothFactor = 0.2, 
               popup = ~NAME) %>%
   setView(-98.483330, 38.712046, zoom = 3) 
+
+# themap
 ```
 
 What have we done here? First we loaded GIS data from the Web. Then we summoned leaflet, told it to add its default map tiles, and then told it to add our GIS data to the map. We told it how to style the map, and then told it where to set the initial view of the map.
@@ -121,7 +122,7 @@ Let's say we wanted to map U.S. counties by percentage of adults with a college 
 my_pal <- colorNumeric("Blues", domain=counties_joined$college)
 
 
-leaflet()%>%
+themap2<-leaflet()%>%
   addTiles()%>%
   addPolygons(data = counties_joined , 
               fillColor =~my_pal(counties_joined$college), 
@@ -130,6 +131,8 @@ leaflet()%>%
               smoothFactor = 0.1, 
               popup = ~NAME) %>%
   setView(-98.483330, 38.712046, zoom = 4) 
+
+#themap2
 ```
 
 Let's do that again but this time add a legend so we can better interpret the map:
@@ -137,7 +140,7 @@ Let's do that again but this time add a legend so we can better interpret the ma
 ```{r}
 #| message: false
 #| warning: false
-leaflet()%>%
+themap3<-leaflet()%>%
   addTiles()%>%
   addPolygons(data = counties_joined , 
               fillColor =~my_pal(counties_joined$college), 
@@ -150,6 +153,8 @@ leaflet()%>%
             values = counties_joined$college, 
             position = "bottomright", 
             title = "Percent College")
+
+# themap3
 ```
 
 Let's use the Color Brewer package to have more control over our palette:
@@ -171,10 +176,10 @@ popup<- paste0("Colege Pct: ", percent(counties_joined$college,0))
 
 Now we can implement this on the map:
 
-```{r}
+```{r  results='hide'}
 #| message: false
 #| warning: false
-leaflet() %>%
+themap4<-leaflet() %>%
   addTiles() %>%
  setView(-98.483330, 38.712046, zoom = 3) %>%
   addPolygons(
@@ -193,6 +198,8 @@ leaflet() %>%
     pal = mypalette, values = counties_joined$college, opacity = 0.9,
     title = "College Educated", position = "bottomleft"
   )
+
+#themap4
 ```
 
 Take a few minutes and try some of the other variables. See any interesting patterns?
@@ -206,12 +213,14 @@ In this case, let's say we have this batch of U.S. murder locations from the sum
 #| warning: false
 summer21<-read_csv("summer21.csv")
 
-leaflet(summer21) %>%
+themap5<-leaflet(summer21) %>%
   addTiles() %>% 
   setView(-98.483330, 38.712046, zoom = 3)%>%
   addCircles(~summer21$lon, ~summer21$lat, 
              popup=summer21$killed, weight = 3, radius=40, 
              color="red", stroke = TRUE, fillOpacity = 0.8) 
+
+#themap5
 ```
 
 That looks like an interesting map but how can we make more sense of it? If you zoom in, you'll see clusters of dots in most major U.S. cities. But how can we compare? One way would be if we could assign each dot to the county it falls inside of – then we could calculate county totals and normalize using the population.
@@ -288,7 +297,7 @@ shootings_per_capita%>%
 
 And we can of course map this as well:
 
-```{r}
+```{r  results='hide'}
 #| message: false
 #| warning: false
 library(RColorBrewer)
@@ -302,7 +311,7 @@ mypalette <- colorBin(
 
 popup<- paste0(shootings_per_capita$NAME,", ","Shootings per 100K: ", comma(shootings_per_capita$percap,2),sep=" ")
 
-leaflet() %>%
+themap6<-leaflet() %>%
   addTiles() %>%
  setView(-98.483330, 38.712046, zoom = 3) %>%
   addPolygons(
@@ -321,4 +330,6 @@ leaflet() %>%
     pal = mypalette, values = shootings_per_capita$percap, opacity = 0.9,
     title = "Shootings per 100K", position = "bottomleft"
   )
+
+#themap6
 ```
