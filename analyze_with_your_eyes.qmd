@@ -1,0 +1,327 @@
+---
+title: "Thinkings Visually About Your Data"
+format: 
+  html:
+    code-fold: false
+editor: visual
+execute: 
+  cache: false
+embed-resources: true
+---
+
+```{r results='hide'}
+#| label: data_loader
+#| message: false
+#| warning: false
+#| include: false
+
+needs(tidyverse,corrplot,GGally)
+options(scipen=999)
+```
+
+For many years, my approach to data analysis involved a lot of "looking" at the data in the only way I knew how. If the data was a spreadsheet, I'd open the spreadsheet and literally examine the rows and columns, scrolling vertically and horizontally to see what was on there.
+
+With larger databases, I'd literally write SQL code for each column, counting, summing, finding means etc. And then I would methodically make my way through the entire dataset until I felt i had a "feel" for it.
+
+Modern tools provide a lot of shortcuts to this process, but I find the best approach these days is to "visualize" your data before you analyze it.
+
+To be clear: Visualizing data is far different from manually looking at rows and columns. It means plotting the data into charts and maps, and it means using visual tools to see the relationships between variables.
+
+In this class, I'm going to walk you through how to implement this approach in the R statistical programming language, but the same principles apply to Python or any other modern language you use for data work.
+
+To start with, I'm going to load a practice data set with variables about U.S. Counties that we might want to analyze to help understand the popularity of Donald J. Trump:
+
+```{r}
+#| message: false
+#| warning: false
+
+
+election<-read_csv("voting24.csv")%>%
+  select(state_name,county_fips,trump=per_gop)
+
+dhdemos<-read_csv("dhdemos.csv")%>%
+  mutate(GEOID=Geo_FIPS,
+         state=Geo_STUSAB,
+         county=Geo_NAME,
+         pop=SE_A00002_001,
+         density=SE_A00002_002,
+         med_age=SE_A01004_001,
+         white=SE_A04001_003/SE_A04001_001,
+         black=SE_A04001_004/SE_A04001_001,
+         nativeam=SE_A04001_005/SE_A04001_001,
+         asian=(SE_A04001_006+SE_A04001_007)/SE_A04001_001,
+         hispanic=SE_A04001_010/SE_A04001_001,
+         married_hh=SE_A10008_003/SE_A10008_001,
+         hhsize=SE_A10003_001,
+         college=SE_A12001_005/SE_A12001_001,
+         nilf=SE_A17002_007/SE_A17002_001,
+         unemp=SE_A17002_006/SE_A17002_004,
+         income=SE_A14006_001,
+         retirement=SE_A10017_002/SE_A10017_001,
+         owned=SE_A10060_002/SE_A10060_001,
+         yearbuilt=SE_A10057_001,
+         rent=SE_A18009_001,
+         commute=SE_A09003_001,
+         noncit=SE_A06001_004/SE_A06001_001,
+         uninsured=SE_A20001_002/SE_A20001_001,
+         singleparent=SE_A10065_002/SE_A10065_001)%>%
+select(GEOID:singleparent)%>%
+  filter(state!="pr")%>%
+  left_join(election, by=c("GEOID"="county_fips"))%>%
+  relocate(state_name, .after="GEOID")
+
+glimpse(dhdemos)
+```
+
+So in this dataset, each row is a U.S. County and each column contains characteristics of the county, including the percentage of voters that favored Mr. Trump in the 2024 election.
+
+Let's say we're curious about whether the population of a county had any relationship with Mr. Trump's popularity. Old me would have created a set of "size buckets" for the counties and run a group by query, but new me starts with a plot:
+
+```{r}
+ggplot(data = dhdemos) + 
+  geom_point(mapping = aes(x = pop, y = trump))
+
+```
+
+This shows a couple of issues. We have missing data - and even with that, the plot isn't clear because the size of counties is not normally distributed. Let's fix both issues.
+
+```{r}
+dhdemos%>%filter(is.na(trump))%>%
+  group_by(state)%>%
+  summarize(count=n())
+```
+
+Ah. Right. In the U.S., Alaska does not report election results by county. And there's one county in Hawaii that is so small it's votes are counted in a different county. So we can just filter those out before our next plot.
+
+But how can we make the results more meaningful? There are a couple of options. One is to ask R to draw for us a trend line.
+
+```{r}
+dhdemos%>%
+  filter(!is.na(trump))%>%
+ggplot + 
+  geom_point(mapping = aes(x = pop, y = trump))+
+  geom_smooth(mapping = aes(x = pop, y = trump))
+```
+
+Ok. Now we're getting somewhere. This suggests that there is a pretty strong relationship. As counties get larger, Mr. Trump's popularity falls. The curve however is still a bit distorted at the end where there are only a handful of really large, outlier counties. So let's adjust our plot to zoom in.
+
+```{r}
+#| message: false
+#| warning: false
+dhdemos%>%
+  filter(!is.na(trump))%>%
+ggplot + 
+  geom_point(mapping = aes(x = pop, y = trump))+
+  geom_smooth(mapping = aes(x = pop, y = trump))+
+  xlim(0,750000)
+
+dhdemos%>%
+  filter(!is.na(trump))%>%
+ggplot + 
+  geom_point(mapping = aes(x = pop, y = trump))+
+  geom_smooth(mapping = aes(x = pop, y = trump))+
+  xlim(750000,max(dhdemos$pop))
+```
+
+Look what we've done here. After our initial plot showed the relationship was not fully linear, we broke the plot into two pieces to confirm. There is a statistical relationship between county population and Mr. Trump's popularity - but the relationship stops mattering once you get above a certain population level.
+
+Take a few minutes and explore some of the other variables and see what you come up with.
+
+You may be wondering – isn't this kind of the manual work that we are trying to avoid, methodically going through the variables to find relationships?
+
+Yes, you are right. So let's use a couple of other visual shortcuts to tell us which variables we should focus on. I'm going to subset just the numeric variables and create a correlation matrix. This will express the relationship between every varialbe in my dataset on a scale of -1 (negative correlation) to 1 (high correlation) with values near 0 showing no relationship at all. I will then use one of my favorite tools, [Corrplot](https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html){target="_blank"}, to visualize the findings.
+
+```{r}
+library(corrplot)
+
+dhnumbers<-dhdemos%>%
+  select(pop:trump)
+
+M = cor(dhnumbers,use="complete.obs")
+
+corrplot(M, method = 'color')
+
+```
+
+This gives us a much clearer picture - the darker red categories show us that Trump support goes down with size, the percentage of black population, the percentage of asian population, and a few other categories. But the darkest squares are for percentage of college eduation and counties with high rent. On the other side, his support goes up with the percentage of white people, the marriage rate, home ownership, and the percentage of retirees.
+
+If you explore the corrplot page, you can see some other really cool ways to visualize:
+
+```{r}
+corrplot(M, method = 'ellipse', order = 'AOE', type = 'upper')
+
+corrplot(M, method = 'square', diag = FALSE, order = 'hclust',
+         addrect = 3, rect.col = 'blue', rect.lwd = 3, tl.pos = 'd')
+```
+
+The first version converts those squares into directional ellipses. The second version seeks to cluster the related variables.
+
+By the way, for my Python friends. This is still pretty generic. You can make a [correlation matrix](https://www.geeksforgeeks.org/create-a-correlation-matrix-using-python/){target="_blank"} and[visualize it](https://stackoverflow.com/questions/29432629/plot-correlation-matrix-using-pandas){target="_blank"}.
+
+So now that we've determined a handful of pro-Trump characteristics, let's break them out and look at those plots more carefully. I'm going to use a technique I found on the Internet that implements a library called "GGally" and a custom function – there's no rule against using code from the Internet if it does the job.
+
+```{r}
+#| message: false
+#| warning: false
+library(GGally)
+pro_trump<-dhdemos%>%
+  select(GEOID:county, trump,married_hh,owned,white,nilf,med_age,retirement)
+
+smoothing <- function(data, mapping, ...){
+  p <- ggplot(data = data, mapping = mapping) + 
+    geom_point() + 
+    geom_smooth(method=loess, fill="red", color="red", ...) +
+    geom_smooth(method=lm, fill="blue", color="blue", ...)
+  p
+}
+
+ggpairs(pro_trump, columns=5:11,lower = list(continuous = smoothing)) 
+```
+
+Now going back to our original plot:
+
+```{r}
+dhdemos%>%
+  filter(!is.na(trump))%>%
+ggplot + 
+  geom_point(mapping = aes(x = white, y = trump))+
+  geom_smooth(mapping = aes(x = white, y = trump))
+```
+
+It's also easy with modern tools to create these plots for groups:
+
+```{r}
+#| message: false
+#| warning: false
+dhdemos%>%
+  filter(!is.na(trump))%>%
+  ggplot + 
+  geom_smooth(mapping = aes(x = white, y = trump))+
+  labs(title = "Trump Voting by %White Pop",
+       y = "Trump Vote%", x = "Pct White") + 
+  geom_hline(yintercept=0.5, linetype="dashed", color = "red")+
+  facet_wrap(~ state_name)  +
+  theme(
+    strip.text.x = element_text(margin = margin(2, 0, 2, 0))
+  )
+```
+
+And the cool thing is, because we're working in code, it's easy to copy and paste that code chunk and swap in a different variable:
+
+```{r}
+#| message: false
+#| warning: false
+dhdemos%>%
+  filter(!is.na(trump))%>%
+  ggplot + 
+  geom_smooth(mapping = aes(x = college, y = trump))+
+  labs(title = "Trump Voting by %College Educated",
+       y = "Trump Vote%", x = "Pct College Educated") + 
+  geom_hline(yintercept=0.5, linetype="dashed", color = "red")+
+  facet_wrap(~ state_name)  +
+  theme(
+    strip.text.x = element_text(margin = margin(2, 0, 2, 0))
+  )
+```
+
+So one thing that has always vexed me with this approach is what to do with categorical values. But there are several approaches that I've found helpful. This is a box plot:
+
+```{r}
+#| message: false
+#| warning: false
+countytypes<-read_csv("countytypes.csv")%>%
+  inner_join(election, by=c("FIPStxt"="county_fips"))%>%
+  filter(Attribute=="Industry_Dependence_2025")%>%
+  mutate(econ_type=case_when(
+    Value==0 ~ 'Not dependent',
+    Value==1 ~ 'Farming dependent',
+    Value==2 ~ 'Mining dependent',
+    Value==3 ~ 'Manufacturing dependent',
+    Value==4 ~ 'Government dependent',
+    Value==5 ~ 'Recreation dependent',
+    Value==99 ~ "N/A"))
+
+countytypes%>%
+  ggplot()+
+  aes(x = str_wrap(as.factor(econ_type),width = 10), y = trump) +
+  geom_boxplot() +
+  labs(title = "Trump Voting by County Economic Type",
+       y = "Trump Vote%", x = "County Type")
+```
+
+What we have done is import a dataset that tags U.S. county by economic type, filtered for the "industry dependence" category and added labels to the numeric values. This type of plot tells you something about the distribution of the values and the median. So the range around "Minding dependent" is smaller than around "Government dependent".
+
+This approach is useful, but sometimes it's more useful to account for the size of counties . No problem, we can re-run this plot with "weights", the county population.
+
+```{r}
+#| message: false
+#| warning: false
+countypops<-dhdemos%>%
+  select(GEOID,pop)
+
+countytypes<-read_csv("countytypes.csv")%>%
+  inner_join(election, by=c("FIPStxt"="county_fips"))%>%
+  inner_join(countypops, by=c("FIPStxt"="GEOID"))%>%
+  filter(Attribute=="Industry_Dependence_2025")%>%
+  mutate(econ_type=case_when(
+    Value==0 ~ 'Not dependent',
+    Value==1 ~ 'Farming dependent',
+    Value==2 ~ 'Mining dependent',
+    Value==3 ~ 'Manufacturing dependent',
+    Value==4 ~ 'Government dependent',
+    Value==5 ~ 'Recreation dependent',
+    Value==99 ~ "N/A"))
+
+countytypes%>%
+  ggplot()+
+  aes(x = str_wrap(as.factor(econ_type),width = 10), weight=pop,y = trump) +
+  geom_boxplot() +
+  labs(title = "Trump Voting by County Economic Type (Weighted by Pop.)",
+       y = "Trump Vote%", x = "County Type")
+
+```
+
+The boxplot has some variants, including the violin plot:
+
+```{r}
+#| message: false
+#| warning: false
+countytypes%>%
+  ggplot()+ 
+  aes(x=str_wrap(as.factor(econ_type),width = 14), y=trump, fill=econ_type,
+                weight=pop) +
+  geom_violin()
+```
+
+A ridgeline plot:
+
+```{r}
+#| message: false
+#| warning: false
+library(ggridges)
+
+  ggplot(countytypes, aes(trump, fct_rev(econ_type), color = econ_type, fill = econ_type)) + 
+  coord_cartesian(clip = "off")+
+   geom_density_ridges(
+    alpha = .7)
+  
+ 
+  
+```
+
+And here's a similar method using population weights:
+
+```{r}
+#| message: false
+#| warning: false
+ ggplot(countytypes, 
+        aes(x = trump, y = fct_rev(econ_type))) +
+  geom_density_ridges(aes(height=..density..,  
+                          weight=pop, color = econ_type, fill = econ_type), 
+                      scale= 0.7,
+                      stat="density")+ 
+  coord_cartesian(clip = "off") 
+  
+```
+
+So in conclusion, I hope from this you have learned the value of exploring data visually as an early step in any analysis. As you've noticed, I have not spent any time teaching the syntax of this - I feel it's far more important to understand what is possible and why you would do it. Syntax can be copied and modified and these techniques can be applied in other languages as well, they are not exclusive to R.
