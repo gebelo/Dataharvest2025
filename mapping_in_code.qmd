@@ -1,0 +1,324 @@
+---
+title: "Mapping In Code"
+format: 
+  html:
+    code-fold: false
+    self_contained: false
+editor: visual
+execute: 
+  cache: true
+embed-resources: true
+---
+
+## Thematic Mapping and Spatial Analysis in Code
+
+```{r results='hide'}
+#| label: data_loader
+#| message: false
+#| warning: false
+#| include: false
+
+needs(tidyverse,sf,leaflet)
+```
+
+### **Introduction**
+
+Spatial analysis is one of the most exciting forms of data journalism. It’s pretty cool to calculate statistics from a gigantic data table, and even cooler to join two data tables together and generate new insights.
+
+But turning data into maps is even cooler. Historically, data journalists have needed to do this type of work using separate GIS software, such as ArcView or QGIS, a program that is being taught at this conference.
+
+Those are great tools, but increasingly, data journalists have been doing more and more spatial work directly in their analytical code. The advantage of this is that the spatial part of the analysis gets incorporated into the project seemlessly. The code is fully reproducible and reusable, and the final maps can easily be pushed to the Web.
+
+In this lesson, we are going to use the R statistical programming language as our platform, but I promise you that everything you see here works very similarly in other languages, such as Python.
+
+So let’s get started!
+
+We first are going to need to install a few libraries to handle our map work.
+
+-   The “[Simple Features](https://r-spatial.github.io/sf/)” library has versions in many languages and is the primary tool for opening and processing maps.
+
+-   The “[Mapview](https://r-spatial.github.io/mapview/)” library provides a good interface for viewing maps as we’re working with them.
+
+-   The “[Leaflet](https://rstudio.github.io/leaflet/)” library is an interface for building interactive maps that can be ported to the Web.
+
+To start, let's just make a simple map. You can either download the GIS data and read it locally, or in this case, we're going to read it from the Web:
+
+```{r}
+#| message: false
+#| warning: false
+uscounties<-read_sf("https://raw.githubusercontent.com/loganpowell/census-geojson/refs/heads/master/GeoJSON/500k/2022/county.json")
+
+leaflet()%>%
+  addTiles()%>%
+  addPolygons(data = uscounties , 
+              fillColor = "yellow", 
+              fillOpacity = 0.5, 
+              weight = 0.2, 
+              smoothFactor = 0.2, 
+              popup = ~NAME) %>%
+  setView(-98.483330, 38.712046, zoom = 3) 
+```
+
+What have we done here? First we loaded GIS data from the Web. Then we summoned leaflet, told it to add its default map tiles, and then told it to add our GIS data to the map. We told it how to style the map, and then told it where to set the initial view of the map.
+
+This map isn't all that useful yet but we can make it useful with a few more lines of code. Let's load up a csv file with demographics about U.S. Counties...
+
+```{r}
+#| message: false
+#| warning: false
+election<-read_csv("https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/refs/heads/master/2024_US_County_Level_Presidential_Results.csv")%>%
+  select(state_name,county_fips,trump=per_gop)
+
+dhdemos<-read_csv("dhdemos.csv")%>%
+  mutate(GEOID=Geo_FIPS,
+         state=Geo_STUSAB,
+         county=Geo_NAME,
+         pop=SE_A00002_001,
+         density=SE_A00002_002,
+         med_age=SE_A01004_001,
+         white=SE_A04001_003/SE_A04001_001,
+         black=SE_A04001_004/SE_A04001_001,
+         nativeam=SE_A04001_005/SE_A04001_001,
+         asian=(SE_A04001_006+SE_A04001_007)/SE_A04001_001,
+         hispanic=SE_A04001_010/SE_A04001_001,
+         married_hh=SE_A10008_003/SE_A10008_001,
+         hhsize=SE_A10003_001,
+         college=SE_A12001_005/SE_A12001_001,
+         nilf=SE_A17002_007/SE_A17002_001,
+         unemp=SE_A17002_006/SE_A17002_004,
+         income=SE_A14006_001,
+         retirement=SE_A10017_002/SE_A10017_001,
+         owned=SE_A10060_002/SE_A10060_001,
+         yearbuilt=SE_A10057_001,
+         rent=SE_A18009_001,
+         commute=SE_A09003_001,
+         noncit=SE_A06001_004/SE_A06001_001,
+         uninsured=SE_A20001_002/SE_A20001_001,
+         singleparent=SE_A10065_002/SE_A10065_001)%>%
+select(GEOID:singleparent)%>%
+  filter(state!="pr")%>%
+  left_join(election, by=c("GEOID"="county_fips"))%>%
+  relocate(state_name, .after="GEOID")
+
+```
+
+And then let's use the Tigris library to join the statistical data to our map:
+
+```{r}
+#| message: false
+#| warning: false
+library(tigris)
+counties_joined <- geo_join(uscounties, dhdemos, "GEOID","GEOID")
+
+glimpse(counties_joined)
+```
+
+Let's say we wanted to map U.S. counties by percentage of adults with a college degree. I can create a color palette for my map as a distinct command:
+
+```{r}
+#| message: false
+#| warning: false
+my_pal <- colorNumeric("Blues", domain=counties_joined$college)
+
+
+leaflet()%>%
+  addTiles()%>%
+  addPolygons(data = counties_joined , 
+              fillColor =~my_pal(counties_joined$college), 
+              fillOpacity = 0.75, 
+              weight = 0.1, 
+              smoothFactor = 0.1, 
+              popup = ~NAME) %>%
+  setView(-98.483330, 38.712046, zoom = 4) 
+```
+
+Let's do that again but this time add a legend so we can better interpret the map:
+
+```{r}
+#| message: false
+#| warning: false
+leaflet()%>%
+  addTiles()%>%
+  addPolygons(data = counties_joined , 
+              fillColor =~my_pal(counties_joined$college), 
+              fillOpacity = 0.75, 
+              weight = 0.1, 
+              smoothFactor = 0.1, 
+              popup = ~NAME) %>%
+  setView(-98.483330, 38.712046, zoom = 3) %>%
+  addLegend(pal = my_pal, 
+            values = counties_joined$college, 
+            position = "bottomright", 
+            title = "Percent College")
+```
+
+Let's use the Color Brewer package to have more control over our palette:
+
+```{r}
+#| message: false
+#| warning: false
+library(RColorBrewer)
+library(formattable)
+
+mybins <- c(0, 0.1, 0.2, 0.3, 0.4,Inf)
+mypalette <- colorBin(
+  palette = "YlOrBr", domain =counties_joined$college,
+  na.color = "transparent", bins = mybins
+)
+
+popup<- paste0("Colege Pct: ", percent(counties_joined$college,0))
+```
+
+Now we can implement this on the map:
+
+```{r}
+#| message: false
+#| warning: false
+leaflet() %>%
+  addTiles() %>%
+ setView(-98.483330, 38.712046, zoom = 3) %>%
+  addPolygons(
+    data=counties_joined,
+    fillColor = ~ mypalette(counties_joined$college),
+    stroke = F,
+    fillOpacity = 0.50,
+    label = popup,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "11px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    pal = mypalette, values = counties_joined$college, opacity = 0.9,
+    title = "College Educated", position = "bottomleft"
+  )
+```
+
+Take a few minutes and try some of the other variables. See any interesting patterns?
+
+Ok, onto the next skill. Often in data journalism we want to work with "point" data - where each record contains a specific location, represented by an address, or if we're lucky, by the latitude and longitude representing that address. (If you only have the address and not the coordinates, you will need to ["geocode" your data](https://cloud.r-project.org/web/packages/tidygeocoder/readme/README.html){target="_blank"}).
+
+In this case, let's say we have this batch of U.S. murder locations from the summer of 2021, one of the most violent summer's in the U.S. in recent memory. We can load the data and make a map pretty easily:
+
+```{r}
+#| message: false
+#| warning: false
+summer21<-read_csv("summer21.csv")
+
+leaflet(summer21) %>%
+  addTiles() %>% 
+  setView(-98.483330, 38.712046, zoom = 3)%>%
+  addCircles(~summer21$lon, ~summer21$lat, 
+             popup=summer21$killed, weight = 3, radius=40, 
+             color="red", stroke = TRUE, fillOpacity = 0.8) 
+```
+
+That looks like an interesting map but how can we make more sense of it? If you zoom in, you'll see clusters of dots in most major U.S. cities. But how can we compare? One way would be if we could assign each dot to the county it falls inside of – then we could calculate county totals and normalize using the population.
+
+With the "SF" library, it's straightforward to do this "spatial" join. First, we need to make sure all of our data is transformed to the WGS 84 -- World Geodetic System 1984 — coordinate reference system, referenced here as crs 4326. This just guarantees that our latitudes and longitudes will be interpreted on the same scale.
+
+```{r}
+#| message: false
+#| warning: false
+uscounties<-uscounties%>%
+  st_transform(crs = 4326)
+
+uscounties<-uscounties%>%
+  st_transform(crs = 4326)
+
+#for our point file we will need to tell R that this is a 
+#mappable object first, and then transform to 
+summer21<-summer21%>%
+  st_as_sf(
+    coords = c("lon",
+               "lat"),
+    crs = 4326)
+```
+
+Next we can create our new, joined object and see how every shooting inherits the :
+
+```{r}
+#| message: false
+#| warning: false
+shootings_joined<-summer21%>%
+  st_join(uscounties,
+          join = st_intersects, 
+          left = TRUE)
+
+glimpse(shootings_joined)
+```
+
+Now let's summarize the data by county:
+
+```{r}
+#| message: false
+#| warning: false
+county_shootings<-shootings_joined%>%
+  as_tibble()%>%
+  group_by(GEOID,STATE_NAME,NAME)%>%
+  summarize(shootings=n())%>%
+  arrange(desc(shootings))
+
+head(county_shootings)
+```
+
+Now let's join this back to the demographics so we can calculate a rate. First, let's make a leaner version of the demographics file with just the population, and a leaner version of our shootings file, and then use a left join to put them together:
+
+```{r}
+#| message: false
+#| warning: false
+uscounties_lean<-counties_joined%>%
+  select(GEOID,NAME,STATE_NAME, pop,geometry)
+
+shootings_lean<-county_shootings%>%
+  select(GEOID,shootings)
+
+shootings_per_capita<-uscounties_lean%>%
+  left_join(shootings_lean)%>%
+  mutate(shootings=ifelse(is.na(shootings),0,shootings))%>%
+  mutate(percap=(shootings/pop)*100000)%>%
+  arrange(desc(percap))
+
+shootings_per_capita%>%
+  filter(pop>=50000)%>%
+  select(NAME,STATE_NAME,pop,shootings,percap)%>%
+  head()
+```
+
+And we can of course map this as well:
+
+```{r}
+#| message: false
+#| warning: false
+library(RColorBrewer)
+library(formattable)
+
+mybins <- c(0,3,6,9,12,Inf)
+mypalette <- colorBin(
+  palette = "Reds", domain =shootings_per_capita$percap,
+  na.color = "transparent", bins = mybins
+)
+
+popup<- paste0(shootings_per_capita$NAME,", ","Shootings per 100K: ", comma(shootings_per_capita$percap,2),sep=" ")
+
+leaflet() %>%
+  addTiles() %>%
+ setView(-98.483330, 38.712046, zoom = 3) %>%
+  addPolygons(
+    data=shootings_per_capita,
+    fillColor = ~ mypalette(shootings_per_capita$percap),
+    stroke = F,
+    fillOpacity = 0.50,
+    label = popup,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "11px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    pal = mypalette, values = shootings_per_capita$percap, opacity = 0.9,
+    title = "Shootings per 100K", position = "bottomleft"
+  )
+```
