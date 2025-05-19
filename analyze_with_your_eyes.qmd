@@ -15,6 +15,7 @@ embed-resources: true
 #| warning: false
 #| include: false
 
+#setwd("/workspaces/Dataharvest2025")
 needs(tidyverse,corrplot,GGally,sf,leaflet)
 options(scipen=999)
 ```
