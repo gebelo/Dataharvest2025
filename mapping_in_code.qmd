@@ -68,7 +68,7 @@ This map isn't all that useful yet but we can make it useful with a few more lin
 ```{r}
 #| message: false
 #| warning: false
-election<-read_csv("https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/refs/heads/master/2024_US_County_Level_Presidential_Results.csv")%>%
+election<-read_csv("voting24.csv")%>%
   select(state_name,county_fips,trump=per_gop)
 
 dhdemos<-read_csv("dhdemos.csv")%>%
@@ -332,5 +332,7 @@ themap6<-leaflet() %>%
     title = "Shootings per 100K", position = "bottomleft"
   )
 
-#themap6
+themap6
+
+
 ```

@@ -2229,7 +2229,7 @@ vertical-align: -.125em;
 <p>What have we done here? First we loaded GIS data from the Web. Then we summoned leaflet, told it to add its default map tiles, and then told it to add our GIS data to the map. We told it how to style the map, and then told it where to set the initial view of the map.</p>
 <p>This map isn’t all that useful yet but we can make it useful with a few more lines of code. Let’s load up a csv file with demographics about U.S. Counties…</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>election<span class="ot">&lt;-</span><span class="fu">read_csv</span>(<span class="st">&quot;https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/refs/heads/master/2024_US_County_Level_Presidential_Results.csv&quot;</span>)<span class="sc">%&gt;%</span></span>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>election<span class="ot">&lt;-</span><span class="fu">read_csv</span>(<span class="st">&quot;voting24.csv&quot;</span>)<span class="sc">%&gt;%</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(state_name,county_fips,<span class="at">trump=</span>per_gop)</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>dhdemos<span class="ot">&lt;-</span><span class="fu">read_csv</span>(<span class="st">&quot;dhdemos.csv&quot;</span>)<span class="sc">%&gt;%</span></span>
@@ -2539,7 +2539,7 @@ Geodetic CRS:  WGS 84
 <span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">&quot;Shootings per 100K&quot;</span>, <span class="at">position =</span> <span class="st">&quot;bottomleft&quot;</span></span>
 <span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a><span class="co">#themap6</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a>themap6</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
