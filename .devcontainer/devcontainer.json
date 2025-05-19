@@ -2,7 +2,7 @@
 	"name": "R Data Science Environment",
 	"build": {
 		"dockerfile": "Dockerfile",
-		"args": { "VARIANT": "4.2" }
+		"args": { "VARIANT": "4.4.3" }
 	},
 
 	// Install Dev Container Features. More info: https://containers.dev/features
@@ -12,7 +12,7 @@
 		// More info: https://github.com/rocker-org/devcontainer-templates/tree/main/src/r-ver
 		"ghcr.io/rocker-org/devcontainer-features/r-rig:1": {
 			"version": "none",
-			"installJupyterlab": true
+			"installJupyterlab": false
 		}
 	},
 
