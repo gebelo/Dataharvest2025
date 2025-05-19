@@ -3,13 +3,13 @@
 ARG VARIANT="4.4.3"
 FROM ghcr.io/rocker-org/devcontainer/geospatial:${VARIANT}
 
-RUN install2.r --error --skipinstalled -n -1 \
-        RColorBrewer\
-        formattable\
-        corrplot\
-        GGally\
-        tigris\
-        ggridges\
-        
-    && rm -rf /tmp/downloaded_packages \
-    && R -q -e 'remotes::install_github("https://github.com/dcomtois/summarytools/tree/0-8-9")'
+#RUN install2.r --error --skipinstalled -n -1 \
+#        RColorBrewer\
+#        formattable\
+#        corrplot\
+#        GGally\
+#        tigris\
+#        ggridges\
+#        
+#    && rm -rf /tmp/downloaded_packages \
+#    && R -q -e 'remotes::install_github("https://github.com/dcomtois/summarytools/tree/0-8-9")'
