@@ -12,7 +12,7 @@
 		// More info: https://github.com/rocker-org/devcontainer-templates/tree/main/src/r-ver
 		"ghcr.io/rocker-org/devcontainer-features/r-rig:1": {
 			"version": "none",
-			"installJupyterlab": true
+			"installJupyterlab": false
 		}
 	},
 
