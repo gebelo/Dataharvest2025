@@ -10,5 +10,5 @@ RUN install2.r --error --skipinstalled -n -1 \
         GGally\
         tigris\
         ggridges\
-
+&& rm -rf /tmp/downloaded_packages \
 
